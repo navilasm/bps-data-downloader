@@ -2,6 +2,8 @@
 
 A Streamlit app to fetch data from the [BPS (Badan Pusat Statistik) Web API](https://webapi.bps.go.id/) within the `https://webapi.bps.go.id/v1/api/list` endpoint and decode the cryptic `datacontent` key mapping into human-readable labels.
 
+[Link to Streamlit App](https://bps-data-downloader.streamlit.app/)
+
 ## What It Does
 
 The BPS API returns data values keyed by concatenated dimension IDs:
