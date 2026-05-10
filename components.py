@@ -4,6 +4,9 @@ BPS Data Downloader — Reusable UI Components
 HTML builders and Streamlit rendering helpers.
 """
 
+from IPython.core import display_functions
+from IPython.core import display_functions
+from _plotly_utils import optional_imports
 import json
 from typing import Any
 
@@ -13,6 +16,9 @@ import streamlit as st
 from config import DIMS_ORDER, DIMS_COLORS, DIMS_LABELS, DIM_TABLE_LABELS
 from decoder import decode_key
 
+import plotly.express as px
+import plotly.graph_objects as go
+import numpy as np
 
 # ── Custom CSS (injected once) ───────────────────────────────────────────────
 
@@ -123,8 +129,9 @@ def _render_var_notes(data: dict) -> None:
     for v in data.get("var", []):
         note = v.get("note", "")
         if note and note.strip():
-            st.markdown("###### Variable notes")
-            st.markdown(note, unsafe_allow_html=True)
+            st.markdown("##### Variable Notes")
+            with st.container(height=150, border=True):
+                st.markdown(note, unsafe_allow_html=True)
 
 
 def _render_json_preview(data: dict) -> None:
@@ -187,6 +194,14 @@ def render_decoded_table(
 
         df_decoded = pd.DataFrame(decoded_rows)
         label_cols = [c for c in df_decoded.columns if c.endswith("_label")]
+        for col in label_cols:
+            df_decoded[col] = (
+                df_decoded[col]
+                .fillna("Unknown")
+                .astype(str)
+                .str.strip()
+                .replace("", "Unknown")
+            )
         val_cols = [c for c in df_decoded.columns if c.endswith("_val")]
         show_labels = st.checkbox(
             "Show label columns only (hide raw val IDs)",
@@ -204,6 +219,9 @@ def render_decoded_table(
             )
         display_cols = [c for c in display_cols if c in df_decoded.columns]
         st.dataframe(df_decoded[display_cols], width="content", hide_index=True)
+
+        st.markdown("#### Visualized Data")
+        render_treemap(df_decoded)
 
         csv_data = df_decoded[display_cols].to_csv(index=False)
         st.download_button(
@@ -224,3 +242,101 @@ def render_failed_keys(failed_keys: list[str], *, label: str = "") -> None:
     with st.expander(f"⚠️ {len(failed_keys)} keys could not be decoded{suffix}"):
         st.write("These keys did not match the expected dimension concatenation pattern:")
         st.code("\n".join(failed_keys))
+
+def render_treemap(df_plot):
+    col1, col2 = st.columns([5, 0.5], vertical_alignment="top")
+    
+    if "turtahun_label" in df_plot.columns:
+        with col2:
+            option = st.selectbox(
+                "Select period",
+                df_plot["turtahun_label"].unique(),
+                index=0,
+            )
+
+    turvar_unique = (df_plot["turvar_label"].dropna().unique()[0])
+    if turvar_unique.lower() in ["tidak ada", "none"]:
+        df_plot = df_plot.drop(columns=["turvar_label"])
+
+    aggregated_labels = ["Total", "Indonesia", "Rata-rata", "<b> Total </b>", "Average"]
+    agg_lower = [x.lower() for x in aggregated_labels]
+    conditions = []
+    if "vervar_label" in df_plot.columns:
+        conditions.append(~df_plot["vervar_label"].str.lower().isin(agg_lower))
+    if "turvar_label" in df_plot.columns:
+        conditions.append(~df_plot["turvar_label"].str.lower().isin(agg_lower))
+    if "turtahun_label" in df_plot.columns:
+        conditions.append(df_plot["turtahun_label"] == option)
+    if conditions:
+        combined_condition = conditions[0]
+        for cond in conditions[1:]:
+            combined_condition &= cond
+        df_plot = df_plot[combined_condition]
+
+    path_cols = [px.Constant("Indonesia"), "vervar_label"]
+    if "turvar_label" in df_plot.columns:
+        path_cols.append("turvar_label")
+
+    fig = px.treemap(df_plot, 
+                    path=path_cols, values='value',
+                    color="value",
+                    hover_data=['vervar_label'],
+                    color_continuous_scale='RdBu',
+                    color_continuous_midpoint=np.average(df_plot['value'], weights=df_plot['value']),
+                    title=df_plot["var_label"].unique()[0],
+                    )
+    fig.update_traces(
+        texttemplate="%{label}<br>%{value}<br>%{percentRoot:.1%} of Total",
+        root_color="lightgrey")
+
+    with col1:
+        st.plotly_chart(fig, config = {'scrollZoom': False})
+
+def render_linechart(df_plot):
+    col1, col2 = st.columns([5, 1], vertical_alignment="top")
+    
+    with col2:
+        turtahun = st.selectbox(
+            "Select period",
+            df_plot["turtahun_label"].unique(),
+            index=0, key='turtahun'
+        )
+        vervar = st.selectbox(
+            "Select variable",
+            df_plot["vervar_label"].unique(),
+            index=0, key='vervar'
+        )
+        turvar = st.selectbox(
+            "Select group",
+            df_plot["turvar_label"].unique(),
+            index=0, key='turvar'
+        )
+    
+    df_plot = df_plot[
+        (df_plot["turtahun_label"]==turtahun) &
+        (df_plot["vervar_label"]==vervar) &
+        (df_plot["turvar_label"]==turvar)
+        ]
+
+    if turvar not in ("None", "Tidak ada"):
+        title = vervar + " - " + turvar + " - " + turtahun  + " period"
+    else:
+        title = vervar + " - " + turtahun + " period"
+    fig = go.Figure(
+        data=go.Scatter(
+                x=df_plot["tahun_label"], y=df_plot["value"],
+            )
+        ,
+        layout=dict(
+            title=dict(
+                text=df_plot["var_label"].unique()[0],
+                subtitle=dict(
+                    text=title,
+                    font=dict(color="gray", size=13),
+                ),
+            )
+        ),
+    )
+
+    with col1:
+        st.plotly_chart(fig, config = {'scrollZoom': False})

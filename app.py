@@ -37,6 +37,7 @@ from components import (
     render_key_mapping,
     render_decoded_table,
     render_failed_keys,
+    render_linechart
 )
 
 # ── Load .env ────────────────────────────────────────────────────────────────
@@ -278,6 +279,9 @@ with st.container(border=True):
             display_cols_all = [c for c in display_cols_all if c in df_all.columns]
 
             st.dataframe(df_all[display_cols_all], width='stretch', hide_index=True)
+
+            st.markdown("#### Visualized Data")
+            render_linechart(df_all)
 
             csv_all = df_all[display_cols_all].to_csv(index=False)
             st.download_button(
