@@ -4,12 +4,7 @@ BPS Data Downloader — Reusable UI Components
 HTML builders and Streamlit rendering helpers.
 """
 
-from IPython.core import display_functions
-from IPython.core import display_functions
-from _plotly_utils import optional_imports
 import json
-from typing import Any
-
 import pandas as pd
 import streamlit as st
 

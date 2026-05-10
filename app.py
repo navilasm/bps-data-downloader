@@ -14,7 +14,6 @@ Example:
 """
 
 import os
-from typing import Any
 from datetime import date
 
 import pandas as pd
