@@ -102,3 +102,6 @@ bps-data-downloader/
   - `requests >= 2.31.0`
   - `pandas >= 2.0.0`
   - `python-dotenv >= 1.0.0`
+
+## Preview
+![Preview](./screenshots/BPS_Data_Downloader_Preview.gif)
